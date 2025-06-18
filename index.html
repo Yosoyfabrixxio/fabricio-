@@ -2,31 +2,91 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Gráfico de Desigualdades</title>
+  <title>Graficador de Desigualdades</title>
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <style>
     body {
-      font-family: Arial;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
       padding: 20px;
+      background-color: #f4f6f9;
+      color: #333;
     }
-    #graficar {
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #1e88e5;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: auto;
+      background: #fff;
+      padding: 20px 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    label, input, button {
+      font-size: 16px;
+      display: block;
+      width: 100%;
       margin-top: 10px;
+    }
+
+    input {
+      padding: 10px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+
+    button {
+      background-color: #1e88e5;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #1565c0;
+    }
+
+    #plot {
+      margin-top: 30px;
+      height: 600px;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      color: #888;
+      font-size: 14px;
     }
   </style>
 </head>
 <body>
 
-  <h2>Graficar desigualdades con dos variables</h2>
+  <h1>Visualizador de Desigualdades</h1>
+  <div class="container">
+    <label for="ineq">Escribe una desigualdad con dos variables (ej: <strong>2*x + 3*y &lt;= 6</strong>):</label>
+    <input type="text" id="ineq" value="2*x + 3*y <= 6" placeholder="Ej: x + y >= 5">
+    <button id="graficar">Graficar Región de Solución</button>
 
-  <label for="ineq">Ingresa la desigualdad (ej: 2*x + 3*y &lt;= 6):</label><br>
-  <input type="text" id="ineq" size="30" value="2*x + 3*y <= 6"><br>
-  <button id="graficar">Graficar</button>
+    <div id="plot"></div>
+  </div>
 
-  <div id="plot" style="width: 100%; height: 600px;"></div>
+  <div class="footer">
+    Hecho con ❤️ en HTML + Plotly.js
+  </div>
 
   <script>
     function parseInequality(ineq) {
-      const parts = ineq.match(/(.+)(<=|>=|<|>)(.+)/);
+      const parts = ineq.match(/(.+?)(<=|>=|<|>)(.+)/);
       if (!parts) return null;
       return {
         left: parts[1].trim(),
@@ -36,24 +96,28 @@
     }
 
     function evaluateInequality(x, y, parsed) {
-      const expr = parsed.left.replace(/x/g, `(${x})`).replace(/y/g, `(${y})`);
-      const right = parsed.right;
-      return eval(`${eval(expr)} ${parsed.operator} ${eval(right)}`);
+      try {
+        const expr = parsed.left.replace(/x/g, `(${x})`).replace(/y/g, `(${y})`);
+        const right = parsed.right;
+        return eval(`${eval(expr)} ${parsed.operator} ${eval(right)}`);
+      } catch (e) {
+        return false;
+      }
     }
 
-    document.getElementById('graficar').addEventListener('click', function () {
-      const ineq = document.getElementById('ineq').value;
-      const parsed = parseInequality(ineq);
+    document.getElementById('graficar').addEventListener('click', () => {
+      const input = document.getElementById('ineq').value.trim();
+      const parsed = parseInequality(input);
       if (!parsed) {
-        alert('Desigualdad inválida.');
+        alert("Desigualdad no válida. Usa formato como: 2*x + y <= 5");
         return;
       }
 
-      const xRange = [-10, 10];
-      const yRange = [-10, 10];
-      const step = 0.5;
       const xVals = [];
       const yVals = [];
+      const xRange = [-10, 10];
+      const yRange = [-10, 10];
+      const step = 0.3;
 
       for (let x = xRange[0]; x <= xRange[1]; x += step) {
         for (let y = yRange[0]; y <= yRange[1]; y += step) {
@@ -64,23 +128,38 @@
         }
       }
 
-      const solutionRegion = {
+      const region = {
         x: xVals,
         y: yVals,
         mode: 'markers',
         type: 'scatter',
-        name: 'Región solución',
-        marker: { color: 'rgba(0,200,0,0.4)', size: 4 }
+        name: 'Región Solución',
+        marker: {
+          color: 'rgba(30, 136, 229, 0.4)',
+          size: 4
+        }
       };
 
       const layout = {
-        title: 'Región de la desigualdad',
-        xaxis: { range: xRange, title: 'x' },
-        yaxis: { range: yRange, title: 'y' },
-        showlegend: true
+        title: `Gráfico de: ${input}`,
+        xaxis: {
+          title: 'x',
+          zeroline: true,
+          gridcolor: '#ddd',
+          range: xRange
+        },
+        yaxis: {
+          title: 'y',
+          zeroline: true,
+          gridcolor: '#ddd',
+          range: yRange
+        },
+        plot_bgcolor: '#f9f9f9',
+        paper_bgcolor: '#fff',
+        showlegend: false
       };
 
-      Plotly.newPlot('plot', [solutionRegion], layout);
+      Plotly.newPlot('plot', [region], layout, {responsive: true});
     });
   </script>
 
