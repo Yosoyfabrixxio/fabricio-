@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Gráfico de Desigualdades</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body {
+      font-family: Arial;
+      padding: 20px;
+    }
+    #graficar {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Graficar desigualdades con dos variables</h2>
+
+  <label for="ineq">Ingresa la desigualdad (ej: 2*x + 3*y &lt;= 6):</label><br>
+  <input type="text" id="ineq" size="30" value="2*x + 3*y <= 6"><br>
+  <button id="graficar">Graficar</button>
+
+  <div id="plot" style="width: 100%; height: 600px;"></div>
+
+  <script>
+    function parseInequality(ineq) {
+      const parts = ineq.match(/(.+)(<=|>=|<|>)(.+)/);
+      if (!parts) return null;
+      return {
+        left: parts[1].trim(),
+        operator: parts[2],
+        right: parts[3].trim()
+      };
+    }
+
+    function evaluateInequality(x, y, parsed) {
+      const expr = parsed.left.replace(/x/g, `(${x})`).replace(/y/g, `(${y})`);
+      const right = parsed.right;
+      return eval(`${eval(expr)} ${parsed.operator} ${eval(right)}`);
+    }
+
+    document.getElementById('graficar').addEventListener('click', function () {
+      const ineq = document.getElementById('ineq').value;
+      const parsed = parseInequality(ineq);
+      if (!parsed) {
+        alert('Desigualdad inválida.');
+        return;
+      }
+
+      const xRange = [-10, 10];
+      const yRange = [-10, 10];
+      const step = 0.5;
+      const xVals = [];
+      const yVals = [];
+
+      for (let x = xRange[0]; x <= xRange[1]; x += step) {
+        for (let y = yRange[0]; y <= yRange[1]; y += step) {
+          if (evaluateInequality(x, y, parsed)) {
+            xVals.push(x);
+            yVals.push(y);
+          }
+        }
+      }
+
+      const solutionRegion = {
+        x: xVals,
+        y: yVals,
+        mode: 'markers',
+        type: 'scatter',
+        name: 'Región solución',
+        marker: { color: 'rgba(0,200,0,0.4)', size: 4 }
+      };
+
+      const layout = {
+        title: 'Región de la desigualdad',
+        xaxis: { range: xRange, title: 'x' },
+        yaxis: { range: yRange, title: 'y' },
+        showlegend: true
+      };
+
+      Plotly.newPlot('plot', [solutionRegion], layout);
+    });
+  </script>
+
+</body>
+</html>
