@@ -2,156 +2,140 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Graficador de Sistemas de Desigualdades</title>
+  <title>Programación Lineal - Método Gráfico</title>
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.6.4/math.min.js"></script>
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #f0f2f5;
-      margin: 0;
-      padding: 20px;
-    }
-
-    .container {
-      max-width: 750px;
-      margin: auto;
-      background: white;
-      padding: 25px 30px;
-      border-radius: 12px;
-      box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-    }
-
-    h1 {
-      text-align: center;
-      color: #2c3e50;
-    }
-
-    label {
-      font-weight: bold;
-      margin-top: 10px;
-      display: block;
-    }
-
-    input {
-      width: 100%;
-      padding: 10px;
-      font-size: 16px;
-      margin-top: 5px;
-      margin-bottom: 15px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-    }
-
-    button {
-      width: 100%;
-      background-color: #3498db;
-      color: white;
-      padding: 12px;
-      font-size: 16px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-
-    button:hover {
-      background-color: #2980b9;
-    }
-
-    #plot {
-      margin-top: 30px;
-      height: 600px;
-    }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    input { margin: 5px; padding: 5px; width: 150px; }
+    button { padding: 10px; margin: 10px 0; }
+    table { border-collapse: collapse; margin-top: 20px; }
+    td, th { border: 1px solid #aaa; padding: 6px 10px; }
   </style>
 </head>
 <body>
 
-  <div class="container">
-    <h1>Graficador de Desigualdades</h1>
+<h2>Resolver Programación Lineal (Método Gráfico)</h2>
 
-    <label for="ineq1">Primera desigualdad (ej: x + y <= 5):</label>
-    <input type="text" id="ineq1" value="x + y <= 5">
+<label><strong>Función Objetivo:</strong></label><br>
+Z = <input type="number" id="coefX" value="60"> x +
+    <input type="number" id="coefY" value="80"> y<br><br>
 
-    <label for="ineq2">Segunda desigualdad (ej: x - y >= 1):</label>
-    <input type="text" id="ineq2" value="x - y >= 1">
+<label><strong>Restricciones (formato: 4x + 2y <= 100):</strong></label><br>
+<textarea id="restricciones" rows="5" cols="50">4x + 2y <= 100
+2x + 3y <= 90
+x >= 0
+y >= 0</textarea><br>
 
-    <button onclick="graficar()">Graficar sistema</button>
+<button onclick="resolver()">Resolver</button>
 
-    <div id="plot"></div>
-  </div>
+<div id="resultado"></div>
+<div id="grafica" style="width: 100%; height: 500px;"></div>
 
-  <script>
-    function parseInequality(ineq) {
-      const parts = ineq.match(/(.+?)(<=|>=|<|>)(.+)/);
-      if (!parts) return null;
-      return {
-        left: parts[1].trim(),
-        operator: parts[2],
-        right: parts[3].trim()
-      };
-    }
+<script>
+function resolver() {
+  const coefX = parseFloat(document.getElementById('coefX').value);
+  const coefY = parseFloat(document.getElementById('coefY').value);
+  const restricciones = document.getElementById('restricciones').value.trim().split('\n').map(r => r.trim());
 
-    function evalInequality(x, y, parsed) {
-      try {
-        const exprLeft = parsed.left.replace(/x/g, `(${x})`).replace(/y/g, `(${y})`);
-        const exprRight = parsed.right.replace(/x/g, `(${x})`).replace(/y/g, `(${y})`);
-        return eval(`${eval(exprLeft)} ${parsed.operator} ${eval(exprRight)}`);
-      } catch {
-        return false;
+  // Extraer todos los pares de restricciones para encontrar intersecciones
+  let puntos = [];
+  for (let i = 0; i < restricciones.length; i++) {
+    for (let j = i + 1; j < restricciones.length; j++) {
+      const r1 = restricciones[i];
+      const r2 = restricciones[j];
+      const punto = resolverInterseccion(r1, r2);
+      if (punto && esFactible(punto, restricciones)) {
+        puntos.push(punto);
       }
     }
+  }
 
-    function graficar() {
-      const ineq1 = document.getElementById('ineq1').value;
-      const ineq2 = document.getElementById('ineq2').value;
+  // Filtrar duplicados
+  puntos = puntos.filter((p, index, self) =>
+    index === self.findIndex(o => Math.abs(o.x - p.x) < 1e-6 && Math.abs(o.y - p.y) < 1e-6)
+  );
 
-      const parsed1 = parseInequality(ineq1);
-      const parsed2 = parseInequality(ineq2);
+  if (puntos.length === 0) {
+    document.getElementById('resultado').innerHTML = "<b>No hay región factible.</b>";
+    Plotly.newPlot('grafica', []);
+    return;
+  }
 
-      if (!parsed1 || !parsed2) {
-        alert("Por favor ingresa desigualdades válidas.");
-        return;
-      }
+  // Evaluar Z
+  puntos.forEach(p => p.z = coefX * p.x + coefY * p.y);
+  let optimo = puntos.reduce((max, p) => (p.z > max.z ? p : max), puntos[0]);
 
-      const xVals = [];
-      const yVals = [];
-      const xMin = -10, xMax = 10;
-      const yMin = -10, yMax = 10;
-      const step = 0.3;
+  // Mostrar resultados
+  let html = `<h3>Resultado</h3><p><b>Máximo Z = ${optimo.z}</b> en (x = ${optimo.x}, y = ${optimo.y})</p>`;
+  html += `<table><tr><th>x</th><th>y</th><th>Z</th></tr>`;
+  puntos.forEach(p => {
+    html += `<tr><td>${p.x.toFixed(2)}</td><td>${p.y.toFixed(2)}</td><td>${p.z.toFixed(2)}</td></tr>`;
+  });
+  html += `</table>`;
+  document.getElementById('resultado').innerHTML = html;
 
-      for (let x = xMin; x <= xMax; x += step) {
-        for (let y = yMin; y <= yMax; y += step) {
-          if (evalInequality(x, y, parsed1) && evalInequality(x, y, parsed2)) {
-            xVals.push(x);
-            yVals.push(y);
-          }
-        }
-      }
+  // Graficar
+  const traceFactible = {
+    x: puntos.map(p => p.x),
+    y: puntos.map(p => p.y),
+    mode: 'markers',
+    type: 'scatter',
+    name: 'Vértices factibles',
+    marker: { size: 6, color: 'blue' }
+  };
 
-      const trace = {
-        x: xVals,
-        y: yVals,
-        mode: 'markers',
-        type: 'scatter',
-        name: 'Región solución',
-        marker: {
-          color: 'rgba(39, 174, 96, 0.5)',
-          size: 4
-        }
-      };
+  const traceOptimo = {
+    x: [optimo.x],
+    y: [optimo.y],
+    mode: 'markers',
+    type: 'scatter',
+    name: 'Óptimo',
+    marker: { size: 10, color: 'red', symbol: 'star' }
+  };
 
-      const layout = {
-        title: `Región común del sistema`,
-        xaxis: { title: 'x', range: [xMin, xMax], gridcolor: '#ccc' },
-        yaxis: { title: 'y', range: [yMin, yMax], gridcolor: '#ccc' },
-        plot_bgcolor: '#fdfdfd',
-        paper_bgcolor: '#ffffff',
-        showlegend: false
-      };
+  Plotly.newPlot('grafica', [traceFactible, traceOptimo], {
+    title: 'Región Factible y Óptimo',
+    xaxis: { title: 'x', range: [0, 100] },
+    yaxis: { title: 'y', range: [0, 100] }
+  });
+}
 
-      Plotly.newPlot('plot', [trace], layout, { responsive: true });
-    }
-  </script>
+// Evalúa si un punto cumple con todas las restricciones
+function esFactible(punto, restricciones) {
+  const scope = { x: punto.x, y: punto.y };
+  return restricciones.every(r => {
+    const [lhs, op, rhs] = parseRestriccion(r);
+    const izq = math.evaluate(lhs, scope);
+    const der = parseFloat(rhs);
+    if (op === "<=") return izq <= der + 1e-6;
+    if (op === ">=") return izq >= der - 1e-6;
+    if (op === "=") return Math.abs(izq - der) < 1e-6;
+    return false;
+  });
+}
+
+// Extrae intersección entre dos restricciones lineales
+function resolverInterseccion(r1, r2) {
+  const [lhs1, , rhs1] = parseRestriccion(r1);
+  const [lhs2, , rhs2] = parseRestriccion(r2);
+  try {
+    const res = math.lusolve([
+      [math.derivative(lhs1, 'x').evaluate({x:1,y:0}), math.derivative(lhs1, 'y').evaluate({x:0,y:1})],
+      [math.derivative(lhs2, 'x').evaluate({x:1,y:0}), math.derivative(lhs2, 'y').evaluate({x:0,y:1})]
+    ], [parseFloat(rhs1), parseFloat(rhs2)]);
+    return { x: res[0][0], y: res[1][0] };
+  } catch {
+    return null; // No hay solución o son paralelas
+  }
+}
+
+// Divide restricción tipo "2x + 3y <= 10" en partes [lhs, operador, rhs]
+function parseRestriccion(r) {
+  const match = r.match(/^(.+)(<=|>=|=)(.+)$/);
+  return match ? [match[1].trim(), match[2], match[3].trim()] : [null, null, null];
+}
+</script>
 
 </body>
 </html>
